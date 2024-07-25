@@ -133,14 +133,17 @@
           yEnd = e.touches[0].clientY;
 
           const xDiff = xStart - xEnd;
+          console.log("xDiff", xDiff);
 
-          if (Math.abs(xDiff) > 50) {
+          if (Math.abs(xDiff) > 100) {
             // swipe threshold
             if (xDiff > 0) {
               movement = "left";
             } else {
               movement = "right";
             }
+          } else {
+            movement = null;
           }
         }
 

@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bird Details - Himalayan Monal</title>
+    <link rel="stylesheet" href="styles.css" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@100..900&display=swap"
+      rel="stylesheet"
+    />
+
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <style>
+      #nepali-name {
+        font-family: "Noto Sans Devanagari", sans-serif;
+        font-optical-sizing: auto;
+        font-weight: 200;
+        font-style: normal;
+        font-variation-settings: "wdth" 100;
+      }
+    </style>
+
+    <script src="./bird.js"></script>
+
+    <script>
+      async function getWikipediaInfo(searchTerm) {
+        try {
+          // Step 1: Perform a search query using the 'opensearch' API
+          const searchUrl = `https://en.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(searchTerm)}&limit=1&namespace=0&format=json&origin=*`;
+          const searchResponse = await fetch(searchUrl);
+          const searchData = await searchResponse.json();
+          console.log(searchData);
+
+          // Check if we have results
+          if (searchData[1].length === 0) {
+            throw new Error("No search results found");
+          }
+
+          // Get the page title from the search results
+          const pageTitle = searchData[1][0];
+
+          // Step 2: Get page details including the thumbnail
+          const detailsUrlParams = new URLSearchParams();
+          detailsUrlParams.append("action", "query");
+          detailsUrlParams.append("titles", pageTitle);
+          detailsUrlParams.append("prop", "pageimages|extracts|info");
+          detailsUrlParams.append("inprop", "url");
+          detailsUrlParams.append("exintro", "1");
+          detailsUrlParams.append("format", "json");
+          detailsUrlParams.append("pithumbsize", "500");
+          detailsUrlParams.append("origin", "*");
+
+          const detailsUrl = `https://en.wikipedia.org/w/api.php?${detailsUrlParams.toString()}`;
+          const detailsResponse = await fetch(detailsUrl);
+          const detailsData = await detailsResponse.json();
+          console.log("detailsData", detailsData);
+
+          // Extract the page object
+          const pageId = Object.keys(detailsData.query.pages)[0];
+          const page = detailsData.query.pages[pageId];
+
+          // Check if thumbnail exists
+          if (!page.thumbnail) {
+            throw new Error("No thumbnail available for this page");
+          }
+
+          // Return the thumbnail URL
+          return {
+            imgUrl: page.thumbnail.source,
+            summary: page.extract,
+            url: page.canonicalurl,
+          };
+        } catch (error) {
+          console.error(error);
+          return null;
+        }
+      }
+
+      let currentIndex = 0;
+      const birdData = JSON.parse(localStorage.getItem("birds"));
+
+      async function showBird(index) {
+        const imageEl = document.getElementById("image");
+        const nameEl = document.getElementById("name");
+        const scientificNameEl = document.getElementById("scientific-name");
+        const nepaliNameEl = document.getElementById("nepali-name");
+        const descriptionEl = document.getElementById("description");
+        const sourceEl = document.getElementById("source");
+        const data = birdData[index];
+        const wikiInfo = await getWikipediaInfo(data["name"]);
+        console.log("summary", wikiInfo);
+        if (!Boolean(wikiInfo)) {
+          currentIndex++;
+          showBird(currentIndex);
+          return;
+        }
+        imageEl.src = wikiInfo.imgUrl;
+        nameEl.innerText = data["name"];
+        scientificNameEl.innerText = data["scientific_name"];
+        nepaliNameEl.innerText = data["extra"] + ` (${data["romanized_name"]})`;
+        descriptionEl.innerHTML = wikiInfo["summary"];
+        sourceEl.href = wikiInfo["url"];
+      }
+
+      function nextSlide() {
+        currentIndex = (currentIndex + 1) % birdData.length;
+        showBird(currentIndex);
+      }
+
+      function prevSlide() {
+        currentIndex = (currentIndex - 1 + birdData.length) % birdData.length;
+        showBird(currentIndex);
+      }
+
+      function handleSwipe() {
+        const main = document.getElementById("main");
+        main.addEventListener("touchstart", processTouchStart, false);
+        main.addEventListener("touchmove", processTouchMove, false);
+        main.addEventListener("touchend", processTouchEnd, false);
+
+        let xStart, yStart, xEnd, yEnd, movement;
+
+        function processTouchStart(e) {
+          xStart = e.touches[0].clientX;
+          yStart = e.touches[0].clientY;
+        }
+
+        function processTouchMove(e) {
+          xEnd = e.touches[0].clientX;
+          yEnd = e.touches[0].clientY;
+
+          const xDiff = xStart - xEnd;
+
+          if (Math.abs(xDiff) > 50) {
+            // swipe threshold
+            if (xDiff > 0) {
+              movement = "left";
+            } else {
+              movement = "right";
+            }
+          }
+        }
+
+        function processTouchEnd(e) {
+          switch (movement) {
+            case "left":
+              nextSlide();
+              break;
+            case "right":
+              prevSlide();
+              break;
+          }
+        }
+      }
+
+      window.onload = async () => {
+        currentIndex = Math.round(birdData.length * Math.random());
+        showBird(currentIndex);
+        handleSwipe();
+      };
+    </script>
+  </head>
+  <body class="flex flex-col h-screen">
+    <header
+      class="bg-slate-700 text-slate-50 flex flex-row justify-between p-5"
+    >
+      <h1 class="text-xl font-medium">Birds of Nepal</h1>
+      <a
+        class="w-fit text-right"
+        target="_blank"
+        href="https://github.com/keer4n/birds"
+      >
+        <svg
+          width="24"
+          height="24"
+          viewBox="0 0 1024 1024"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            fill-rule="evenodd"
+            clip-rule="evenodd"
+            d="M8 0C3.58 0 0 3.58 0 8C0 11.54 2.29 14.53 5.47 15.59C5.87 15.66 6.02 15.42 6.02 15.21C6.02 15.02 6.01 14.39 6.01 13.72C4 14.09 3.48 13.23 3.32 12.78C3.23 12.55 2.84 11.84 2.5 11.65C2.22 11.5 1.82 11.13 2.49 11.12C3.12 11.11 3.57 11.7 3.72 11.94C4.44 13.15 5.59 12.81 6.05 12.6C6.12 12.08 6.33 11.73 6.56 11.53C4.78 11.33 2.92 10.64 2.92 7.58C2.92 6.71 3.23 5.99 3.74 5.43C3.66 5.23 3.38 4.41 3.82 3.31C3.82 3.31 4.49 3.1 6.02 4.13C6.66 3.95 7.34 3.86 8.02 3.86C8.7 3.86 9.38 3.95 10.02 4.13C11.55 3.09 12.22 3.31 12.22 3.31C12.66 4.41 12.38 5.23 12.3 5.43C12.81 5.99 13.12 6.7 13.12 7.58C13.12 10.65 11.25 11.33 9.47 11.53C9.76 11.78 10.01 12.26 10.01 13.01C10.01 14.08 10 14.94 10 15.21C10 15.42 10.15 15.67 10.55 15.59C13.71 14.53 16 11.53 16 8C16 3.58 12.42 0 8 0Z"
+            transform="scale(64)"
+            fill="#1B1F23"
+          />
+        </svg>
+      </a>
+    </header>
+
+    <main
+      id="main"
+      class="md:my-3 mx-auto md:w-700 max-w-screen-md flex flex-row text-slate-700 flex-grow overflow-auto"
+    >
+      <button
+        class="bg-slate-100 hover:bg-slate-200 p-3 text-xl md:basis-1/8 hidden md:block"
+        onclick-="prevSlide()"
+      >
+        &#10094;
+      </button>
+      <div class="overflow-auto bg-slate-50">
+        <section class="flex flex-col p-3">
+          <h2
+            id="name"
+            class="text-slate-50 text-md font-medium sticky top-0 bg-slate-600 p-2"
+          >
+            Himalayan Monal
+          </h2>
+          <img
+            class=""
+            id="image"
+            src="images/himalayan-monal.jpg"
+            alt="Himalayan Monal"
+          />
+          <p class="text-left">
+            <strong>Scientific Name:</strong>
+            <span id="scientific-name">Lophophorus impejanus</span>
+          </p>
+          <p class="text-left">
+            <strong>Nepali Name:</strong> <span id="nepali-name">8f“km]</span>
+          </p>
+          <p class="text-justify">
+            <strong>Description:</strong>
+            <span id="description"
+              >The Himalayan Monal, also known as the Impeyan Monal, is a
+              pheasant native to the Himalayan forests and shrublands. It is the
+              national bird of Nepal and is known for its vibrant plumage and
+              striking appearance.
+            </span>
+          </p>
+          <p class="text-right">
+            <a class="underline" target="_blank" id="source">source</a>
+          </p>
+        </section>
+      </div>
+      <button
+        class="bg-slate-100 hover:bg-slate-200 p-3 text-xl md:basis-1/8 hidden md:block"
+        onclick="nextSlide()"
+      >
+        &#10095;
+      </button>
+    </main>
+  </body>
+</html>
